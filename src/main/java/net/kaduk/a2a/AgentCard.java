@@ -14,7 +14,7 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AgentCard {
     @JsonProperty("capabilities")
-    private Object capabilities; // For now (to avoid cascading missing DTOs)
+    private AgentCapabilities capabilities;
 
     @JsonProperty("defaultInputModes")
     private List<String> defaultInputModes;

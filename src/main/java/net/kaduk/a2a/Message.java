@@ -20,10 +20,10 @@ public class Message {
     private String messageId;
 
     @JsonProperty("parts")
-    private List<Object> parts; // Use Object for now
+    private List<Part> parts;
 
     @JsonProperty("role")
-    private String role;
+    private String role; // "agent" or "user"
 
     @JsonProperty("contextId")
     private String contextId;

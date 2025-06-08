@@ -1,27 +1,34 @@
 package net.kaduk.a2a;
 
+import jakarta.annotation.PostConstruct;
 import lombok.Getter;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.*;
 
-/**
- * Utility class for annotation-based agent and skill registry.
- * Not a Spring bean -- static cache, invoked via AgentController or anywhere ApplicationContext available.
- */
+@Component
 public class A2AAgentRegistry {
 
-    private static Map<String, AgentMeta> cachedAgents = null;
+    @Autowired
+    private ApplicationContext applicationContext;
 
-    public static synchronized Map<String, AgentMeta> getRegistry(ApplicationContext context) {
-        if (cachedAgents != null) {
-            return cachedAgents;
-        }
-        Map<String, AgentMeta> agentRegistry = new HashMap<>();
-        String[] beanNames = context.getBeanDefinitionNames();
+    /**
+     * Holds info about all registered agents:
+     * key: bean name, value: AgentMeta (contains metadata, skills)
+     */
+    @Getter
+    private final Map<String, AgentMeta> agentRegistry = new HashMap<>();
+
+    @PostConstruct
+    public void scanAgents() throws BeansException {
+        String[] beanNames = applicationContext.getBeanDefinitionNames();
+
         for (String beanName : beanNames) {
-            Object bean = context.getBean(beanName);
+            Object bean = applicationContext.getBean(beanName);
 
             Class<?> beanClass = bean.getClass();
             if (beanClass.isAnnotationPresent(A2AAgent.class)) {
@@ -38,8 +45,6 @@ public class A2AAgentRegistry {
                 agentRegistry.put(beanName, meta);
             }
         }
-        cachedAgents = agentRegistry;
-        return agentRegistry;
     }
 
     @Getter

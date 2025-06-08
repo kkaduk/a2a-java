@@ -1,7 +1,6 @@
 package net.kaduk.a2a;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -13,14 +12,16 @@ import java.util.stream.Collectors;
 public class AgentController {
 
     @Autowired
-    private ApplicationContext applicationContext;
+    private A2AAgentRegistry agentRegistry;
 
     @GetMapping(value = "/agent/card", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<AgentCard> getAgentCard() {
-        List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(A2AAgentRegistry.getRegistry(applicationContext).values());
+        // For demo, show all aggregate info for all registered agents
+        List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(agentRegistry.getAgentRegistry().values());
         if (agents.isEmpty()) {
             return Mono.empty();
         }
+        // Compose single AgentCard from first (by convention), but enumerate all skills
         A2AAgentRegistry.AgentMeta meta = agents.get(0);
         List<AgentSkill> allSkills = agents.stream()
                 .flatMap(agent -> agent.getSkills().stream().map(skillMeta ->
@@ -39,6 +40,7 @@ public class AgentController {
                 .skills(allSkills)
                 .defaultInputModes(Collections.singletonList("text/plain"))
                 .defaultOutputModes(Collections.singletonList("text/plain"))
+                // For brevity, provider/capabilities can be statically set or extended
                 .provider(AgentProvider.builder()
                         .organization("A2A Auto MultiAgent System")
                         .url("http://localhost:8080")
@@ -53,20 +55,21 @@ public class AgentController {
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     public Mono<SendMessageSuccessResponse> handleAgentMessage(@RequestBody SendMessageRequest request) {
-        List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(A2AAgentRegistry.getRegistry(applicationContext).values());
+        // Example assumes skill id is encoded in message taskId
         if (request.getParams() == null || request.getParams().getMessage() == null) {
             return Mono.error(new IllegalArgumentException("Missing message data"));
         }
         Message msg = request.getParams().getMessage();
-        String skillId = msg.getTaskId();
+        String skillId = msg.getTaskId(); // You may want to put skill id elsewhere
 
-        for (A2AAgentRegistry.AgentMeta agent : agents) {
+        for (A2AAgentRegistry.AgentMeta agent : agentRegistry.getAgentRegistry().values()) {
             Optional<A2AAgentRegistry.SkillMeta> skillOpt = agent.getSkills().stream()
                     .filter(meta -> meta.getId().equals(skillId))
                     .findFirst();
             if (skillOpt.isPresent()) {
                 try {
-                    Object result = skillOpt.get().getMethod().invoke(agent.getBean(), "test"); // Dummy arg for now
+                    Object result = skillOpt.get().getMethod().invoke(agent.getBean(), 1, 2); // Example params
+                    // Assuming result is serializable, wrap as Message.
                     Message responseMsg = Message.builder()
                             .kind("message")
                             .messageId(UUID.randomUUID().toString())

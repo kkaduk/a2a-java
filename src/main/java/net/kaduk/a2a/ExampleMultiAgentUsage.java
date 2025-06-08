@@ -1,4 +1,4 @@
-package com.example.a2a;
+package net.kaduk.a2a;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

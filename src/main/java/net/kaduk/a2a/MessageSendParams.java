@@ -16,7 +16,7 @@ public class MessageSendParams {
     private Message message;
 
     @JsonProperty("configuration")
-    private Object configuration; // Omit for now
+    private MessageSendConfiguration configuration;
 
     @JsonProperty("metadata")
     private Map<String, Object> metadata;

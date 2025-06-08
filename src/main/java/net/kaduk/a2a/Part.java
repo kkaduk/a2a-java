@@ -1,4 +1,4 @@
-package com.example.a2a;
+package net.kaduk.a2a;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

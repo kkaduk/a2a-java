@@ -1,4 +1,4 @@
-package com.example.a2a;
+package net.kaduk.a2a;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -12,13 +12,13 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class TextPart extends Part {
+public class DataPart extends Part {
     @Builder.Default
     @JsonProperty("kind")
-    private final String kind = "text";
+    private final String kind = "data";
 
-    @JsonProperty("text")
-    private String text;
+    @JsonProperty("data")
+    private Map<String, Object> data;
 
     @JsonProperty("metadata")
     private Map<String, Object> metadata;

@@ -18,5 +18,5 @@ public class SendMessageSuccessResponse {
     private String id;
 
     @JsonProperty("result")
-    private Object result; // Message, can use Object for now
+    private Message result;
 }
