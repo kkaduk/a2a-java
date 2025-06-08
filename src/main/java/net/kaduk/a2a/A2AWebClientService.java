@@ -1,14 +1,16 @@
 package net.kaduk.a2a;
 
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 /**
  * Service for agent-to-agent (A2A) JSON-RPC communication over HTTP using WebFlux.
  */
+@Component
 public class A2AWebClientService {
-
+    
     private final WebClient webClient;
 
     public A2AWebClientService(WebClient webClient) {
