@@ -1,22 +1,38 @@
 // src/main/java/net/kaduk/a2a/AgentController.java
 package net.kaduk.a2a;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import org.springframework.context.annotation.Lazy;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 @RestController
+@Lazy // Important: Lazy initialization to avoid circular dependency
 public class AgentController {
 
-    @Autowired
-    private A2AAgentRegistry agentRegistry;
+    private final A2AAgentRegistry agentRegistry;
+
+    // Constructor injection instead of field injection
+    public AgentController(@Lazy A2AAgentRegistry agentRegistry) {
+        this.agentRegistry = agentRegistry;
+    }
 
     // Simple in-memory task storage for demo
     private final Map<String, Task> tasks = new ConcurrentHashMap<>();
@@ -25,7 +41,25 @@ public class AgentController {
     public Mono<AgentCard> getAgentCard() {
         List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(agentRegistry.getAgentRegistry().values());
         if (agents.isEmpty()) {
-            return Mono.empty();
+            // Return a default card if no agents are registered yet
+            return Mono.just(AgentCard.builder()
+                    .name("A2A Agent")
+                    .version("1.0")
+                    .description("A2A Protocol Agent")
+                    .skills(Collections.emptyList())
+                    .defaultInputModes(Collections.singletonList("text/plain"))
+                    .defaultOutputModes(Collections.singletonList("text/plain"))
+                    .capabilities(AgentCapabilities.builder()
+                            .streaming(true)
+                            .pushNotifications(false)
+                            .stateTransitionHistory(true)
+                            .build())
+                    .provider(AgentProvider.builder()
+                            .organization("A2A System")
+                            .url("http://localhost:8080")
+                            .build())
+                    .url("http://localhost:8080")
+                    .build());
         }
 
         A2AAgentRegistry.AgentMeta meta = agents.get(0);
@@ -66,6 +100,17 @@ public class AgentController {
                 .map(task -> SendMessageSuccessResponse.builder()
                         .id(request.getId())
                         .result(createResponseMessage(task))
+                        .build())
+                .onErrorReturn(SendMessageSuccessResponse.builder()
+                        .id(request.getId())
+                        .result(Message.builder()
+                                .kind("message")
+                                .messageId(UUID.randomUUID().toString())
+                                .role("agent")
+                                .parts(Collections.singletonList(TextPart.builder()
+                                        .text("Error processing request")
+                                        .build()))
+                                .build())
                         .build());
     }
 
@@ -75,7 +120,8 @@ public class AgentController {
                 .flatMapMany(task -> Flux.just(
                         createTaskStatusUpdate(task),
                         createResponseMessage(task)
-                ));
+                ))
+                .onErrorReturn(Map.of("error", "Failed to process streaming request"));
     }
 
     @PostMapping(value = "/agent/tasks/get", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -127,6 +173,10 @@ public class AgentController {
     }
 
     private Mono<Task> processMessage(MessageSendParams params) {
+        if (params == null || params.getMessage() == null) {
+            return Mono.error(new IllegalArgumentException("Invalid message parameters"));
+        }
+
         Message msg = params.getMessage();
         String skillId = msg.getTaskId();
 
@@ -142,16 +192,37 @@ public class AgentController {
                 .history(new ArrayList<>())
                 .build());
 
+        // Extract input from message parts
+        String input = extractInputFromMessage(msg);
+
         // Find and execute skill
-        for (A2AAgentRegistry.AgentMeta agent : agentRegistry.getAgentRegistry().values()) {
+        Map<String, A2AAgentRegistry.AgentMeta> agents = agentRegistry.getAgentRegistry();
+        for (A2AAgentRegistry.AgentMeta agent : agents.values()) {
             Optional<A2AAgentRegistry.SkillMeta> skillOpt = agent.getSkills().stream()
                     .filter(meta -> meta.getId().equals(skillId))
                     .findFirst();
             
             if (skillOpt.isPresent()) {
                 try {
-                    // Execute skill (simplified - you may need to extract parameters from message parts)
-                    Object result = skillOpt.get().getMethod().invoke(agent.getBean(), "test input");
+                    A2AAgentRegistry.SkillMeta skill = skillOpt.get();
+                    Object result;
+                    
+                    // Handle different parameter types
+                    Class<?>[] paramTypes = skill.getMethod().getParameterTypes();
+                    if (paramTypes.length == 0) {
+                        result = skill.getMethod().invoke(agent.getBean());
+                    } else if (paramTypes.length == 1) {
+                        result = skill.getMethod().invoke(agent.getBean(), input);
+                    } else {
+                        // For multiple parameters, you might need more sophisticated parameter mapping
+                        result = skill.getMethod().invoke(agent.getBean(), input);
+                    }
+                    
+                    // Store result in task metadata
+                    if (task.getMetadata() == null) {
+                        task.setMetadata(new HashMap<>());
+                    }
+                    task.getMetadata().put("result", result != null ? result.toString() : "null");
                     
                     // Update task status
                     task.setStatus(TaskStatus.builder()
@@ -161,10 +232,15 @@ public class AgentController {
                     
                     return Mono.just(task);
                 } catch (Exception e) {
+                    System.err.println("Error executing skill " + skillId + ": " + e.getMessage());
                     task.setStatus(TaskStatus.builder()
                             .state(TaskState.FAILED)
                             .timestamp(LocalDateTime.now().toString())
                             .build());
+                    if (task.getMetadata() == null) {
+                        task.setMetadata(new HashMap<>());
+                    }
+                    task.getMetadata().put("error", e.getMessage());
                     return Mono.just(task);
                 }
             }
@@ -174,10 +250,36 @@ public class AgentController {
                 .state(TaskState.REJECTED)
                 .timestamp(LocalDateTime.now().toString())
                 .build());
+        if (task.getMetadata() == null) {
+            task.setMetadata(new HashMap<>());
+        }
+        task.getMetadata().put("error", "Skill not found: " + skillId);
         return Mono.just(task);
     }
 
+    private String extractInputFromMessage(Message msg) {
+        if (msg.getParts() != null && !msg.getParts().isEmpty()) {
+            Part firstPart = msg.getParts().get(0);
+            if (firstPart instanceof TextPart) {
+                return ((TextPart) firstPart).getText();
+            }
+        }
+        return "";
+    }
+
     private Message createResponseMessage(Task task) {
+        String resultText = "Task completed";
+        if (task.getMetadata() != null) {
+            Object result = task.getMetadata().get("result");
+            if (result != null) {
+                resultText = result.toString();
+            }
+            Object error = task.getMetadata().get("error");
+            if (error != null) {
+                resultText = "Error: " + error.toString();
+            }
+        }
+
         return Message.builder()
                 .kind("message")
                 .messageId(UUID.randomUUID().toString())
@@ -185,7 +287,7 @@ public class AgentController {
                 .contextId(task.getContextId())
                 .taskId(task.getId())
                 .parts(Collections.singletonList(TextPart.builder()
-                        .text("Task processed with status: " + task.getStatus().getState().getValue())
+                        .text(resultText)
                         .build()))
                 .build();
     }

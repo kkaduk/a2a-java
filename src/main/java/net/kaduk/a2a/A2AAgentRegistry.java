@@ -1,15 +1,19 @@
 // src/main/java/net/kaduk/a2a/A2AAgentRegistry.java
 package net.kaduk.a2a;
 
-import jakarta.annotation.PostConstruct;
-import lombok.Getter;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
-import java.util.*;
+import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 
 @Component
 public class A2AAgentRegistry implements ApplicationContextAware {
@@ -29,15 +33,27 @@ public class A2AAgentRegistry implements ApplicationContextAware {
     private final Map<String, AgentMeta> agentRegistry = new HashMap<>();
 
     @PostConstruct
-    public void scanAgents() throws BeansException {
-        String[] beanNames = applicationContext.getBeanDefinitionNames();
+    public void scanAgents() {
+        // Delay the scanning to avoid circular dependency during startup
+        try {
+            scanAndRegisterAgents();
+        } catch (Exception e) {
+            // Log error but don't fail startup
+            System.err.println("Error during agent scanning: " + e.getMessage());
+        }
+    }
 
-        for (String beanName : beanNames) {
-            Object bean = applicationContext.getBean(beanName);
-
+    private void scanAndRegisterAgents() {
+        Map<String, Object> agentBeans = applicationContext.getBeansWithAnnotation(A2AAgent.class);
+        
+        for (Map.Entry<String, Object> entry : agentBeans.entrySet()) {
+            String beanName = entry.getKey();
+            Object bean = entry.getValue();
+            
             Class<?> beanClass = bean.getClass();
-            if (beanClass.isAnnotationPresent(A2AAgent.class)) {
-                A2AAgent agentAnnotation = beanClass.getAnnotation(A2AAgent.class);
+            A2AAgent agentAnnotation = beanClass.getAnnotation(A2AAgent.class);
+            
+            if (agentAnnotation != null) {
                 List<SkillMeta> skills = new ArrayList<>();
 
                 for (Method method : beanClass.getMethods()) {
@@ -46,8 +62,10 @@ public class A2AAgentRegistry implements ApplicationContextAware {
                         skills.add(new SkillMeta(skillAnn, method));
                     }
                 }
+                
                 AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
                 agentRegistry.put(beanName, meta);
+                System.out.println("Registered agent: " + agentAnnotation.name() + " with " + skills.size() + " skills");
             }
         }
     }
