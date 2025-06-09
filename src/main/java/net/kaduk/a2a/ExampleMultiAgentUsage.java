@@ -1,10 +1,10 @@
+// src/main/java/net/kaduk/a2a/ExampleMultiAgentUsage.java
 package net.kaduk.a2a;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -42,7 +42,7 @@ class WorkerB {
 class Coordinator {
 
     @Autowired
-    private A2AWebClientService a2aClient; // auto-configured WebClient-based service
+    private A2AWebClientService a2aClient;
 
     // Example: Coordinator's skill that orchestrates calls to WorkerA and WorkerB according to a DAG plan
     @A2AAgentSkill(id = "coordinate", name = "Coordinate DAG Processing", description = "Executes DAG plan with two workers", tags = {"coordinator"})

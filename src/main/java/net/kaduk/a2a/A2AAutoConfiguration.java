@@ -1,14 +1,12 @@
+// src/main/java/net/kaduk/a2a/A2AAutoConfiguration.java
 package net.kaduk.a2a;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
-/**
- * Auto-configuration for the a2a-java library.
- * Ensures all components in 'net.kaduk.a2a' are registered when used as a dependency.
- */
 @Configuration
 @ComponentScan(basePackages = "net.kaduk.a2a")
+@Import(A2AWebClientConfiguration.class)
 public class A2AAutoConfiguration {
-    // No additional configuration needed; beans picked up via component scan.
 }

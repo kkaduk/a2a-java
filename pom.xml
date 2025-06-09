@@ -13,7 +13,7 @@
         <spring.boot.version>3.2.0</spring.boot.version>
         <jackson.version>2.15.2</jackson.version>
         <jakarta.annotation.version>2.1.1</jakarta.annotation.version>
-        <lombok.version>1.18.32</lombok.version>
+        <lombok.version>1.18.38</lombok.version>
     </properties>
     <dependencies>
         <dependency>

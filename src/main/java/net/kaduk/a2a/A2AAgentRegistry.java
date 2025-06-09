@@ -1,20 +1,25 @@
+// src/main/java/net/kaduk/a2a/A2AAgentRegistry.java
 package net.kaduk.a2a;
 
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.*;
 
 @Component
-public class A2AAgentRegistry {
+public class A2AAgentRegistry implements ApplicationContextAware {
 
-    @Autowired
     private ApplicationContext applicationContext;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
 
     /**
      * Holds info about all registered agents:
