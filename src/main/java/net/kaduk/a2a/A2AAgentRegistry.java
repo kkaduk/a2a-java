@@ -1,49 +1,42 @@
-// src/main/java/net/kaduk/a2a/A2AAgentRegistry.java
 package net.kaduk.a2a;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 
 @Component
 public class A2AAgentRegistry implements ApplicationContextAware {
 
     private ApplicationContext applicationContext;
+    @Autowired
+    private AgentRepository agentRepository;
 
     @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
 
-    /**
-     * Holds info about all registered agents:
-     * key: bean name, value: AgentMeta (contains metadata, skills)
-     */
     @Getter
     private final Map<String, AgentMeta> agentRegistry = new HashMap<>();
 
-    @PostConstruct
-    public void scanAgents() {
-        // Delay the scanning to avoid circular dependency during startup
-        try {
-            scanAndRegisterAgents();
-        } catch (Exception e) {
-            // Log error but don't fail startup
-            System.err.println("Error during agent scanning: " + e.getMessage());
-        }
-    }
-
-    private void scanAndRegisterAgents() {
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void registerAgentsOnStartup() {
         Map<String, Object> agentBeans = applicationContext.getBeansWithAnnotation(A2AAgent.class);
         
         for (Map.Entry<String, Object> entry : agentBeans.entrySet()) {
@@ -54,20 +47,54 @@ public class A2AAgentRegistry implements ApplicationContextAware {
             A2AAgent agentAnnotation = beanClass.getAnnotation(A2AAgent.class);
             
             if (agentAnnotation != null) {
-                List<SkillMeta> skills = new ArrayList<>();
-
-                for (Method method : beanClass.getMethods()) {
-                    if (method.isAnnotationPresent(A2AAgentSkill.class)) {
-                        A2AAgentSkill skillAnn = method.getAnnotation(A2AAgentSkill.class);
-                        skills.add(new SkillMeta(skillAnn, method));
-                    }
-                }
-                
-                AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
-                agentRegistry.put(beanName, meta);
-                System.out.println("Registered agent: " + agentAnnotation.name() + " with " + skills.size() + " skills");
+                registerAgent(beanName, bean, agentAnnotation);
             }
         }
+    }
+
+    @Transactional
+    private void registerAgent(String beanName, Object bean, A2AAgent agentAnnotation) {
+        List<SkillMeta> skills = new ArrayList<>();
+        
+        for (Method method : bean.getClass().getMethods()) {
+            if (method.isAnnotationPresent(A2AAgentSkill.class)) {
+                A2AAgentSkill skillAnn = method.getAnnotation(A2AAgentSkill.class);
+                skills.add(new SkillMeta(skillAnn, method));
+            }
+        }
+        
+        AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
+        agentRegistry.put(beanName, meta);
+        
+        // Persist to database
+        AgentEntity entity = AgentEntity.builder()
+                .name(agentAnnotation.name())
+                .version(agentAnnotation.version())
+                .description(agentAnnotation.description())
+                .url(agentAnnotation.url())
+                .registeredAt(LocalDateTime.now())
+                .lastHeartbeat(LocalDateTime.now())
+                .active(true)
+                .build();
+        
+        Optional<AgentEntity> existing = agentRepository.findByName(agentAnnotation.name());
+        if (existing.isPresent()) {
+            entity.setId(existing.get().getId());
+            entity.setRegisteredAt(existing.get().getRegisteredAt());
+        }
+        
+        agentRepository.save(entity);
+        System.out.println("Registered agent: " + agentAnnotation.name() + " with " + skills.size() + " skills");
+    }
+
+    @PreDestroy
+    @Transactional
+    public void deregisterAgentsOnShutdown() {
+        for (AgentMeta meta : agentRegistry.values()) {
+            agentRepository.deleteByName(meta.getName());
+            System.out.println("Deregistered agent: " + meta.getName());
+        }
+        agentRegistry.clear();
     }
 
     @Getter
@@ -75,6 +102,7 @@ public class A2AAgentRegistry implements ApplicationContextAware {
         private final String name;
         private final String version;
         private final String description;
+        private final String url;
         private final Object bean;
         private final List<SkillMeta> skills;
 
@@ -82,6 +110,7 @@ public class A2AAgentRegistry implements ApplicationContextAware {
             this.name = agentAnn.name();
             this.version = agentAnn.version();
             this.description = agentAnn.description();
+            this.url = agentAnn.url();
             this.bean = bean;
             this.skills = skills;
         }

@@ -37,7 +37,7 @@ Notes:
 ------
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
 - Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
-- Only files matching these patterns are included: src/main
+- Only files matching these patterns are included: src
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Files are sorted by Git change count (files with more changes are at the bottom)
@@ -56,6 +56,8 @@ src/
             A2AAgentRegistry.java
             A2AAgentSkill.java
             A2AAutoConfiguration.java
+            A2AError.java
+            A2AWebClientConfiguration.java
             A2AWebClientService.java
             AgentCapabilities.java
             AgentCard.java
@@ -63,15 +65,32 @@ src/
             AgentExtension.java
             AgentProvider.java
             AgentSkill.java
+            Artifact.java
+            CancelTaskRequest.java
+            CancelTaskResponse.java
             DataPart.java
             ExampleMultiAgentUsage.java
             FilePart.java
+            GetTaskPushNotificationConfigResponse.java
+            GetTaskRequest.java
+            GetTaskResponse.java
             Message.java
             MessageSendConfiguration.java
             MessageSendParams.java
             Part.java
+            PushNotificationAuthenticationInfo.java
+            PushNotificationConfig.java
             SendMessageRequest.java
             SendMessageSuccessResponse.java
+            SendStreamingMessageRequest.java
+            SetTaskPushNotificationConfigRequest.java
+            SetTaskPushNotificationConfigResponse.java
+            Task.java
+            TaskIdParams.java
+            TaskPushNotificationConfig.java
+            TaskQueryParams.java
+            TaskState.java
+            TaskStatus.java
             TextPart.java
     resources/
       META-INF/
@@ -82,6 +101,944 @@ src/
 ================================================================
 Files
 ================================================================
+
+================
+File: src/main/java/net/kaduk/a2a/A2AAgent.java
+================
+package net.kaduk.a2a;
+
+import java.lang.annotation.*;
+
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface A2AAgent {
+    String name();
+    String version();
+    String description() default "";
+}
+
+================
+File: src/main/java/net/kaduk/a2a/A2AAgentSkill.java
+================
+package net.kaduk.a2a;
+
+import java.lang.annotation.*;
+
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface A2AAgentSkill {
+    String id();
+    String name();
+    String description() default "";
+    String[] tags() default {};
+}
+
+================
+File: src/main/java/net/kaduk/a2a/A2AError.java
+================
+// src/main/java/net/kaduk/a2a/A2AError.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class A2AError {
+    @JsonProperty("code")
+    private Integer code;
+
+    @JsonProperty("message")
+    private String message;
+
+    @JsonProperty("data")
+    private Object data;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/A2AWebClientConfiguration.java
+================
+// src/main/java/net/kaduk/a2a/A2AWebClientConfiguration.java
+package net.kaduk.a2a;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.reactive.function.client.WebClient;
+
+@Configuration
+public class A2AWebClientConfiguration {
+    
+    @Bean
+    @ConditionalOnMissingBean
+    public WebClient webClient() {
+        return WebClient.builder()
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+                .build();
+    }
+}
+
+================
+File: src/main/java/net/kaduk/a2a/AgentCapabilities.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class AgentCapabilities {
+    @JsonProperty("extensions")
+    private List<AgentExtension> extensions;
+
+    @JsonProperty("pushNotifications")
+    private Boolean pushNotifications;
+
+    @JsonProperty("stateTransitionHistory")
+    private Boolean stateTransitionHistory;
+
+    @JsonProperty("streaming")
+    private Boolean streaming;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/AgentExtension.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.Map;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class AgentExtension {
+    @JsonProperty("description")
+    private String description;
+
+    @JsonProperty("params")
+    private Map<String, Object> params;
+
+    @JsonProperty("required")
+    private Boolean required;
+
+    @JsonProperty("uri")
+    private String uri;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/AgentProvider.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class AgentProvider {
+    @JsonProperty("organization")
+    private String organization;
+
+    @JsonProperty("url")
+    private String url;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/AgentSkill.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class AgentSkill {
+    @JsonProperty("description")
+    private String description;
+
+    @JsonProperty("examples")
+    private List<String> examples;
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("inputModes")
+    private List<String> inputModes;
+
+    @JsonProperty("name")
+    private String name;
+
+    @JsonProperty("outputModes")
+    private List<String> outputModes;
+
+    @JsonProperty("tags")
+    private List<String> tags;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/Artifact.java
+================
+// src/main/java/net/kaduk/a2a/Artifact.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.List;
+import java.util.Map;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Artifact {
+    @JsonProperty("artifactId")
+    private String artifactId;
+
+    @JsonProperty("description")
+    private String description;
+
+    @JsonProperty("extensions")
+    private List<String> extensions;
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+
+    @JsonProperty("name")
+    private String name;
+
+    @JsonProperty("parts")
+    private List<Part> parts;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/CancelTaskRequest.java
+================
+// src/main/java/net/kaduk/a2a/CancelTaskRequest.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class CancelTaskRequest {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("method")
+    @Builder.Default
+    private String method = "tasks/cancel";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("params")
+    private TaskIdParams params;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/CancelTaskResponse.java
+================
+// src/main/java/net/kaduk/a2a/CancelTaskResponse.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class CancelTaskResponse {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("result")
+    private Task result;
+
+    @JsonProperty("error")
+    private A2AError error;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/DataPart.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.Map;
+
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class DataPart extends Part {
+    @Builder.Default
+    @JsonProperty("kind")
+    private final String kind = "data";
+
+    @JsonProperty("data")
+    private Map<String, Object> data;
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/FilePart.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.Map;
+
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class FilePart extends Part {
+    @Builder.Default
+    @JsonProperty("kind")
+    private final String kind = "file";
+
+    @JsonProperty("file")
+    private Object file; // could be FileWithBytes or FileWithUri
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+}
+
+// FileWithBytes.java
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+class FileWithBytes {
+    @JsonProperty("bytes")
+    private String bytes; // base64
+
+    @JsonProperty("mimeType")
+    private String mimeType;
+
+    @JsonProperty("name")
+    private String name;
+}
+
+// FileWithUri.java
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+class FileWithUri {
+    @JsonProperty("uri")
+    private String uri;
+
+    @JsonProperty("mimeType")
+    private String mimeType;
+
+    @JsonProperty("name")
+    private String name;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/GetTaskPushNotificationConfigResponse.java
+================
+// src/main/java/net/kaduk/a2a/GetTaskPushNotificationConfigResponse.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class GetTaskPushNotificationConfigResponse {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("result")
+    private TaskPushNotificationConfig result;
+
+    @JsonProperty("error")
+    private A2AError error;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/GetTaskRequest.java
+================
+// src/main/java/net/kaduk/a2a/GetTaskRequest.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class GetTaskRequest {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("method")
+    @Builder.Default
+    private String method = "tasks/get";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("params")
+    private TaskQueryParams params;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/GetTaskResponse.java
+================
+// src/main/java/net/kaduk/a2a/GetTaskResponse.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class GetTaskResponse {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("result")
+    private Task result;
+
+    @JsonProperty("error")
+    private A2AError error;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/MessageSendConfiguration.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class MessageSendConfiguration {
+
+    @JsonProperty("acceptedOutputModes")
+    private List<String> acceptedOutputModes;
+
+    @JsonProperty("blocking")
+    private Boolean blocking;
+
+    @JsonProperty("historyLength")
+    private Integer historyLength;
+
+    // For now, omitting the pushNotificationConfig for brevity; add as needed.
+}
+
+================
+File: src/main/java/net/kaduk/a2a/Part.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
+
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.EXISTING_PROPERTY,
+        property = "kind",
+        visible = true
+)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = TextPart.class, name = "text"),
+        @JsonSubTypes.Type(value = FilePart.class, name = "file"),
+        @JsonSubTypes.Type(value = DataPart.class, name = "data")
+})
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Data
+public abstract class Part {
+    private String kind;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/PushNotificationAuthenticationInfo.java
+================
+// src/main/java/net/kaduk/a2a/PushNotificationAuthenticationInfo.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class PushNotificationAuthenticationInfo {
+    @JsonProperty("credentials")
+    private String credentials;
+
+    @JsonProperty("schemes")
+    private List<String> schemes;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/PushNotificationConfig.java
+================
+// src/main/java/net/kaduk/a2a/PushNotificationConfig.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class PushNotificationConfig {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("token")
+    private String token;
+
+    @JsonProperty("url")
+    private String url;
+
+    @JsonProperty("authentication")
+    private PushNotificationAuthenticationInfo authentication;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/SendMessageRequest.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class SendMessageRequest {
+    @Builder.Default
+    @JsonProperty("jsonrpc")
+    private final String jsonrpc = "2.0";
+
+    @Builder.Default
+    @JsonProperty("method")
+    private final String method = "message/send";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("params")
+    private MessageSendParams params;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/SendStreamingMessageRequest.java
+================
+// src/main/java/net/kaduk/a2a/SendStreamingMessageRequest.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class SendStreamingMessageRequest {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("method")
+    @Builder.Default
+    private String method = "message/stream";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("params")
+    private MessageSendParams params;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/SetTaskPushNotificationConfigRequest.java
+================
+// src/main/java/net/kaduk/a2a/SetTaskPushNotificationConfigRequest.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class SetTaskPushNotificationConfigRequest {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("method")
+    @Builder.Default
+    private String method = "tasks/pushNotificationConfig/set";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("params")
+    private TaskPushNotificationConfig params;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/SetTaskPushNotificationConfigResponse.java
+================
+// src/main/java/net/kaduk/a2a/SetTaskPushNotificationConfigResponse.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class SetTaskPushNotificationConfigResponse {
+    @JsonProperty("jsonrpc")
+    @Builder.Default
+    private String jsonrpc = "2.0";
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("result")
+    private TaskPushNotificationConfig result;
+
+    @JsonProperty("error")
+    private A2AError error;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/Task.java
+================
+// src/main/java/net/kaduk/a2a/Task.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.List;
+import java.util.Map;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Task {
+    @JsonProperty("artifacts")
+    private List<Artifact> artifacts;
+
+    @JsonProperty("contextId")
+    private String contextId;
+
+    @JsonProperty("history")
+    private List<Message> history;
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("kind")
+    @Builder.Default
+    private String kind = "task";
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+
+    @JsonProperty("status")
+    private TaskStatus status;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/TaskIdParams.java
+================
+// src/main/java/net/kaduk/a2a/TaskIdParams.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.Map;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class TaskIdParams {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/TaskPushNotificationConfig.java
+================
+// src/main/java/net/kaduk/a2a/TaskPushNotificationConfig.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class TaskPushNotificationConfig {
+    @JsonProperty("pushNotificationConfig")
+    private PushNotificationConfig pushNotificationConfig;
+
+    @JsonProperty("taskId")
+    private String taskId;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/TaskQueryParams.java
+================
+// src/main/java/net/kaduk/a2a/TaskQueryParams.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.Map;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class TaskQueryParams {
+    @JsonProperty("historyLength")
+    private Integer historyLength;
+
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/TaskState.java
+================
+// src/main/java/net/kaduk/a2a/TaskState.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
+public enum TaskState {
+    SUBMITTED("submitted"),
+    WORKING("working"),
+    INPUT_REQUIRED("input-required"),
+    COMPLETED("completed"),
+    CANCELED("canceled"),
+    FAILED("failed"),
+    REJECTED("rejected"),
+    AUTH_REQUIRED("auth-required"),
+    UNKNOWN("unknown");
+
+    private final String value;
+
+    TaskState(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
+
+    @JsonCreator
+    public static TaskState fromValue(String value) {
+        for (TaskState state : TaskState.values()) {
+            if (state.value.equals(value)) {
+                return state;
+            }
+        }
+        return UNKNOWN;
+    }
+}
+
+================
+File: src/main/java/net/kaduk/a2a/TaskStatus.java
+================
+// src/main/java/net/kaduk/a2a/TaskStatus.java
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class TaskStatus {
+    @JsonProperty("message")
+    private Message message;
+
+    @JsonProperty("state")
+    private TaskState state;
+
+    @JsonProperty("timestamp")
+    private String timestamp;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/TextPart.java
+================
+package net.kaduk.a2a;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+import java.util.Map;
+
+@EqualsAndHashCode(callSuper = true)
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class TextPart extends Part {
+    @Builder.Default
+    @JsonProperty("kind")
+    private final String kind = "text";
+
+    @JsonProperty("text")
+    private String text;
+
+    @JsonProperty("metadata")
+    private Map<String, Object> metadata;
+}
+
+================
+File: src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+================
+net.kaduk.a2a.A2AAutoConfiguration
 
 ================
 File: src/main/resources/a2a.json
@@ -2133,610 +3090,6 @@ File: src/main/resources/a2a.json
 }
 
 ================
-File: src/main/java/net/kaduk/a2a/A2AAgent.java
-================
-package net.kaduk.a2a;
-
-import java.lang.annotation.*;
-
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface A2AAgent {
-    String name();
-    String version();
-    String description() default "";
-}
-
-================
-File: src/main/java/net/kaduk/a2a/A2AAgentSkill.java
-================
-package net.kaduk.a2a;
-
-import java.lang.annotation.*;
-
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface A2AAgentSkill {
-    String id();
-    String name();
-    String description() default "";
-    String[] tags() default {};
-}
-
-================
-File: src/main/java/net/kaduk/a2a/A2AAutoConfiguration.java
-================
-package net.kaduk.a2a;
-
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
-
-/**
- * Auto-configuration for the a2a-java library.
- * Ensures all components in 'net.kaduk.a2a' are registered when used as a dependency.
- */
-@Configuration
-@ComponentScan(basePackages = "net.kaduk.a2a")
-public class A2AAutoConfiguration {
-    // No additional configuration needed; beans picked up via component scan.
-}
-
-================
-File: src/main/java/net/kaduk/a2a/AgentCapabilities.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.List;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class AgentCapabilities {
-    @JsonProperty("extensions")
-    private List<AgentExtension> extensions;
-
-    @JsonProperty("pushNotifications")
-    private Boolean pushNotifications;
-
-    @JsonProperty("stateTransitionHistory")
-    private Boolean stateTransitionHistory;
-
-    @JsonProperty("streaming")
-    private Boolean streaming;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/AgentExtension.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.Map;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class AgentExtension {
-    @JsonProperty("description")
-    private String description;
-
-    @JsonProperty("params")
-    private Map<String, Object> params;
-
-    @JsonProperty("required")
-    private Boolean required;
-
-    @JsonProperty("uri")
-    private String uri;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/AgentProvider.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class AgentProvider {
-    @JsonProperty("organization")
-    private String organization;
-
-    @JsonProperty("url")
-    private String url;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/AgentSkill.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.List;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class AgentSkill {
-    @JsonProperty("description")
-    private String description;
-
-    @JsonProperty("examples")
-    private List<String> examples;
-
-    @JsonProperty("id")
-    private String id;
-
-    @JsonProperty("inputModes")
-    private List<String> inputModes;
-
-    @JsonProperty("name")
-    private String name;
-
-    @JsonProperty("outputModes")
-    private List<String> outputModes;
-
-    @JsonProperty("tags")
-    private List<String> tags;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/DataPart.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.Map;
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class DataPart extends Part {
-    @Builder.Default
-    @JsonProperty("kind")
-    private final String kind = "data";
-
-    @JsonProperty("data")
-    private Map<String, Object> data;
-
-    @JsonProperty("metadata")
-    private Map<String, Object> metadata;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/ExampleMultiAgentUsage.java
-================
-package net.kaduk.a2a;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.UUID;
-
-////////////////////////////////////////////////////////////////
-// Worker Agent 1
-////////////////////////////////////////////////////////////////
-@A2AAgent(name = "WorkerA", version = "1.0", description = "Performs data transformation.")
-@Component
-class WorkerA {
-
-    @A2AAgentSkill(id = "transform", name = "Transform", description = "Transforms input to uppercase.", tags = {"worker"})
-    public String transform(String input) {
-        return input.toUpperCase();
-    }
-}
-
-////////////////////////////////////////////////////////////////
-// Worker Agent 2
-////////////////////////////////////////////////////////////////
-@A2AAgent(name = "WorkerB", version = "1.0", description = "Performs data aggregation.")
-@Component
-class WorkerB {
-
-    @A2AAgentSkill(id = "aggregate", name = "Aggregate", description = "Counts characters.", tags = {"worker"})
-    public int aggregate(String input) {
-        return input.length();
-    }
-}
-
-////////////////////////////////////////////////////////////////
-// Coordinator Agent (invokes workers according to plan)
-////////////////////////////////////////////////////////////////
-@A2AAgent(name = "Coordinator", version = "1.0", description = "Coordinates worker agents via DAG plan.")
-@Component
-class Coordinator {
-
-    @Autowired
-    private A2AWebClientService a2aClient; // auto-configured WebClient-based service
-
-    // Example: Coordinator's skill that orchestrates calls to WorkerA and WorkerB according to a DAG plan
-    @A2AAgentSkill(id = "coordinate", name = "Coordinate DAG Processing", description = "Executes DAG plan with two workers", tags = {"coordinator"})
-    public Mono<String> executeWorkflow(String input, String workerAUrl, String workerBUrl) {
-        // Step 1: Call WorkerA (transform task)
-        SendMessageRequest requestA = SendMessageRequest.builder()
-                .id("reqA-" + UUID.randomUUID())
-                .params(MessageSendParams.builder()
-                    .message(Message.builder()
-                        .kind("message")
-                        .messageId("msg-" + UUID.randomUUID())
-                        .role("coordinator")
-                        .parts(Collections.emptyList()) // can use part for input if needed
-                        .taskId("transform")
-                        .build())
-                    .build())
-                .build();
-
-        // step 2 depends on result of workerA
-        return a2aClient.sendMessage(workerAUrl, requestA)
-            .flatMap(respA -> {
-                // Normally you would parse respA for content; here just simulate next call
-                String transformed = input.toUpperCase(); // simulate WorkerA transform
-                SendMessageRequest requestB = SendMessageRequest.builder()
-                        .id("reqB-" + UUID.randomUUID())
-                        .params(MessageSendParams.builder()
-                                .message(Message.builder()
-                                        .kind("message")
-                                        .messageId("msg-" + UUID.randomUUID())
-                                        .role("coordinator")
-                                        .parts(Collections.emptyList())
-                                        .taskId("aggregate")
-                                        .build())
-                                .build())
-                        .build();
-                return a2aClient.sendMessage(workerBUrl, requestB)
-                    .map(respB -> {
-                        // Simulate aggregate (normally parse respB to get actual result)
-                        int count = transformed.length(); // simulate WorkerB aggregate
-                        // Consolidate final result
-                        return "Final result: [" + transformed + "] has length " + count;
-                    });
-            });
-    }
-}
-
-================
-File: src/main/java/net/kaduk/a2a/FilePart.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.Map;
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class FilePart extends Part {
-    @Builder.Default
-    @JsonProperty("kind")
-    private final String kind = "file";
-
-    @JsonProperty("file")
-    private Object file; // could be FileWithBytes or FileWithUri
-
-    @JsonProperty("metadata")
-    private Map<String, Object> metadata;
-}
-
-// FileWithBytes.java
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-class FileWithBytes {
-    @JsonProperty("bytes")
-    private String bytes; // base64
-
-    @JsonProperty("mimeType")
-    private String mimeType;
-
-    @JsonProperty("name")
-    private String name;
-}
-
-// FileWithUri.java
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-class FileWithUri {
-    @JsonProperty("uri")
-    private String uri;
-
-    @JsonProperty("mimeType")
-    private String mimeType;
-
-    @JsonProperty("name")
-    private String name;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/MessageSendConfiguration.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.List;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class MessageSendConfiguration {
-
-    @JsonProperty("acceptedOutputModes")
-    private List<String> acceptedOutputModes;
-
-    @JsonProperty("blocking")
-    private Boolean blocking;
-
-    @JsonProperty("historyLength")
-    private Integer historyLength;
-
-    // For now, omitting the pushNotificationConfig for brevity; add as needed.
-}
-
-================
-File: src/main/java/net/kaduk/a2a/Part.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.*;
-
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.EXISTING_PROPERTY,
-        property = "kind",
-        visible = true
-)
-@JsonSubTypes({
-        @JsonSubTypes.Type(value = TextPart.class, name = "text"),
-        @JsonSubTypes.Type(value = FilePart.class, name = "file"),
-        @JsonSubTypes.Type(value = DataPart.class, name = "data")
-})
-@JsonInclude(JsonInclude.Include.NON_NULL)
-@Data
-public abstract class Part {
-    private String kind;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/SendMessageRequest.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class SendMessageRequest {
-    @Builder.Default
-    @JsonProperty("jsonrpc")
-    private final String jsonrpc = "2.0";
-
-    @Builder.Default
-    @JsonProperty("method")
-    private final String method = "message/send";
-
-    @JsonProperty("id")
-    private String id;
-
-    @JsonProperty("params")
-    private MessageSendParams params;
-}
-
-================
-File: src/main/java/net/kaduk/a2a/TextPart.java
-================
-package net.kaduk.a2a;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
-
-import java.util.Map;
-
-@EqualsAndHashCode(callSuper = true)
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class TextPart extends Part {
-    @Builder.Default
-    @JsonProperty("kind")
-    private final String kind = "text";
-
-    @JsonProperty("text")
-    private String text;
-
-    @JsonProperty("metadata")
-    private Map<String, Object> metadata;
-}
-
-================
-File: src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
-================
-net.kaduk.a2a.A2AAutoConfiguration
-
-================
-File: src/main/java/net/kaduk/a2a/A2AAgentRegistry.java
-================
-package net.kaduk.a2a;
-
-import jakarta.annotation.PostConstruct;
-import lombok.Getter;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Component;
-
-import java.lang.reflect.Method;
-import java.util.*;
-
-@Component
-public class A2AAgentRegistry {
-
-    @Autowired
-    private ApplicationContext applicationContext;
-
-    /**
-     * Holds info about all registered agents:
-     * key: bean name, value: AgentMeta (contains metadata, skills)
-     */
-    @Getter
-    private final Map<String, AgentMeta> agentRegistry = new HashMap<>();
-
-    @PostConstruct
-    public void scanAgents() throws BeansException {
-        String[] beanNames = applicationContext.getBeanDefinitionNames();
-
-        for (String beanName : beanNames) {
-            Object bean = applicationContext.getBean(beanName);
-
-            Class<?> beanClass = bean.getClass();
-            if (beanClass.isAnnotationPresent(A2AAgent.class)) {
-                A2AAgent agentAnnotation = beanClass.getAnnotation(A2AAgent.class);
-                List<SkillMeta> skills = new ArrayList<>();
-
-                for (Method method : beanClass.getMethods()) {
-                    if (method.isAnnotationPresent(A2AAgentSkill.class)) {
-                        A2AAgentSkill skillAnn = method.getAnnotation(A2AAgentSkill.class);
-                        skills.add(new SkillMeta(skillAnn, method));
-                    }
-                }
-                AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
-                agentRegistry.put(beanName, meta);
-            }
-        }
-    }
-
-    @Getter
-    public static class AgentMeta {
-        private final String name;
-        private final String version;
-        private final String description;
-        private final Object bean;
-        private final List<SkillMeta> skills;
-
-        public AgentMeta(A2AAgent agentAnn, Object bean, List<SkillMeta> skills) {
-            this.name = agentAnn.name();
-            this.version = agentAnn.version();
-            this.description = agentAnn.description();
-            this.bean = bean;
-            this.skills = skills;
-        }
-    }
-
-    @Getter
-    public static class SkillMeta {
-        private final String id;
-        private final String name;
-        private final String description;
-        private final String[] tags;
-        private final Method method;
-
-        public SkillMeta(A2AAgentSkill ann, Method method) {
-            this.id = ann.id();
-            this.name = ann.name();
-            this.description = ann.description();
-            this.tags = ann.tags();
-            this.method = method;
-        }
-    }
-}
-
-================
-File: src/main/java/net/kaduk/a2a/A2AWebClientService.java
-================
-package net.kaduk.a2a;
-
-import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
-
-/**
- * Service for agent-to-agent (A2A) JSON-RPC communication over HTTP using WebFlux.
- */
-@Component
-public class A2AWebClientService {
-    
-    private final WebClient webClient;
-
-    public A2AWebClientService(WebClient webClient) {
-        this.webClient = webClient;
-    }
-
-    /**
-     * Sends an A2A JSON-RPC message/send request to the agent at the provided URL.
-     * @param agentUrl the agent endpoint
-     * @param request SendMessageRequest object
-     * @return Mono of String (JSON-RPC response as string; replace with DTO as needed)
-     */
-    public Mono<String> sendMessage(String agentUrl, SendMessageRequest request) {
-        return webClient.post()
-                .uri(agentUrl)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class); // Could use bodyToMono(CustomResponse.class)
-    }
-}
-
-================
 File: src/main/java/net/kaduk/a2a/AgentCard.java
 ================
 package net.kaduk.a2a;
@@ -2798,100 +3151,96 @@ public class AgentCard {
 }
 
 ================
-File: src/main/java/net/kaduk/a2a/AgentController.java
+File: src/main/java/net/kaduk/a2a/ExampleMultiAgentUsage.java
 ================
+// src/main/java/net/kaduk/a2a/ExampleMultiAgentUsage.java
 package net.kaduk.a2a;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.UUID;
 
-@RestController
-public class AgentController {
+////////////////////////////////////////////////////////////////
+// Worker Agent 1
+////////////////////////////////////////////////////////////////
+@A2AAgent(name = "WorkerA", version = "1.0", description = "Performs data transformation.")
+@Component
+class WorkerA {
+
+    @A2AAgentSkill(id = "transform", name = "Transform", description = "Transforms input to uppercase.", tags = {"worker"})
+    public String transform(String input) {
+        return input.toUpperCase();
+    }
+}
+
+////////////////////////////////////////////////////////////////
+// Worker Agent 2
+////////////////////////////////////////////////////////////////
+@A2AAgent(name = "WorkerB", version = "1.0", description = "Performs data aggregation.")
+@Component
+class WorkerB {
+
+    @A2AAgentSkill(id = "aggregate", name = "Aggregate", description = "Counts characters.", tags = {"worker"})
+    public int aggregate(String input) {
+        return input.length();
+    }
+}
+
+////////////////////////////////////////////////////////////////
+// Coordinator Agent (invokes workers according to plan)
+////////////////////////////////////////////////////////////////
+@A2AAgent(name = "Coordinator", version = "1.0", description = "Coordinates worker agents via DAG plan.")
+@Component
+class Coordinator {
 
     @Autowired
-    private A2AAgentRegistry agentRegistry;
+    private A2AWebClientService a2aClient;
 
-    @GetMapping(value = "/agent/card", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<AgentCard> getAgentCard() {
-        // For demo, show all aggregate info for all registered agents
-        List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(agentRegistry.getAgentRegistry().values());
-        if (agents.isEmpty()) {
-            return Mono.empty();
-        }
-        // Compose single AgentCard from first (by convention), but enumerate all skills
-        A2AAgentRegistry.AgentMeta meta = agents.get(0);
-        List<AgentSkill> allSkills = agents.stream()
-                .flatMap(agent -> agent.getSkills().stream().map(skillMeta ->
-                        AgentSkill.builder()
-                                .id(skillMeta.getId())
-                                .name(skillMeta.getName())
-                                .description(skillMeta.getDescription())
-                                .tags(Arrays.asList(skillMeta.getTags()))
-                                .build()
-                )).collect(Collectors.toList());
-
-        AgentCard card = AgentCard.builder()
-                .name(meta.getName())
-                .version(meta.getVersion())
-                .description(meta.getDescription())
-                .skills(allSkills)
-                .defaultInputModes(Collections.singletonList("text/plain"))
-                .defaultOutputModes(Collections.singletonList("text/plain"))
-                // For brevity, provider/capabilities can be statically set or extended
-                .provider(AgentProvider.builder()
-                        .organization("A2A Auto MultiAgent System")
-                        .url("http://localhost:8080")
+    // Example: Coordinator's skill that orchestrates calls to WorkerA and WorkerB according to a DAG plan
+    @A2AAgentSkill(id = "coordinate", name = "Coordinate DAG Processing", description = "Executes DAG plan with two workers", tags = {"coordinator"})
+    public Mono<String> executeWorkflow(String input, String workerAUrl, String workerBUrl) {
+        // Step 1: Call WorkerA (transform task)
+        SendMessageRequest requestA = SendMessageRequest.builder()
+                .id("reqA-" + UUID.randomUUID())
+                .params(MessageSendParams.builder()
+                    .message(Message.builder()
+                        .kind("message")
+                        .messageId("msg-" + UUID.randomUUID())
+                        .role("coordinator")
+                        .parts(Collections.emptyList()) // can use part for input if needed
+                        .taskId("transform")
                         .build())
+                    .build())
                 .build();
-        return Mono.just(card);
-    }
 
-    @PostMapping(
-        value = "/agent/message",
-        consumes = MediaType.APPLICATION_JSON_VALUE,
-        produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    public Mono<SendMessageSuccessResponse> handleAgentMessage(@RequestBody SendMessageRequest request) {
-        // Example assumes skill id is encoded in message taskId
-        if (request.getParams() == null || request.getParams().getMessage() == null) {
-            return Mono.error(new IllegalArgumentException("Missing message data"));
-        }
-        Message msg = request.getParams().getMessage();
-        String skillId = msg.getTaskId(); // You may want to put skill id elsewhere
-
-        for (A2AAgentRegistry.AgentMeta agent : agentRegistry.getAgentRegistry().values()) {
-            Optional<A2AAgentRegistry.SkillMeta> skillOpt = agent.getSkills().stream()
-                    .filter(meta -> meta.getId().equals(skillId))
-                    .findFirst();
-            if (skillOpt.isPresent()) {
-                try {
-                    Object result = skillOpt.get().getMethod().invoke(agent.getBean(), 1, 2); // Example params
-                    // Assuming result is serializable, wrap as Message.
-                    Message responseMsg = Message.builder()
-                            .kind("message")
-                            .messageId(UUID.randomUUID().toString())
-                            .role("agent")
-                            .parts(msg.getParts())
-                            .contextId(msg.getContextId())
-                            .taskId(skillId)
-                            .build();
-
-                    SendMessageSuccessResponse response = SendMessageSuccessResponse.builder()
-                            .id(request.getId())
-                            .result(responseMsg)
-                            .build();
-                    return Mono.just(response);
-                } catch (Exception e) {
-                    return Mono.error(e);
-                }
-            }
-        }
-        return Mono.error(new IllegalArgumentException("Skill not found: " + skillId));
+        // step 2 depends on result of workerA
+        return a2aClient.sendMessage(workerAUrl, requestA)
+            .flatMap(respA -> {
+                // Normally you would parse respA for content; here just simulate next call
+                String transformed = input.toUpperCase(); // simulate WorkerA transform
+                SendMessageRequest requestB = SendMessageRequest.builder()
+                        .id("reqB-" + UUID.randomUUID())
+                        .params(MessageSendParams.builder()
+                                .message(Message.builder()
+                                        .kind("message")
+                                        .messageId("msg-" + UUID.randomUUID())
+                                        .role("coordinator")
+                                        .parts(Collections.emptyList())
+                                        .taskId("aggregate")
+                                        .build())
+                                .build())
+                        .build();
+                return a2aClient.sendMessage(workerBUrl, requestB)
+                    .map(respB -> {
+                        // Simulate aggregate (normally parse respB to get actual result)
+                        int count = transformed.length(); // simulate WorkerB aggregate
+                        // Consolidate final result
+                        return "Final result: [" + transformed + "] has length " + count;
+                    });
+            });
     }
 }
 
@@ -2992,6 +3341,552 @@ public class SendMessageSuccessResponse {
 
     @JsonProperty("result")
     private Message result;
+}
+
+================
+File: src/main/java/net/kaduk/a2a/A2AAutoConfiguration.java
+================
+// src/main/java/net/kaduk/a2a/A2AAutoConfiguration.java
+package net.kaduk.a2a;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.web.reactive.function.client.WebClient;
+
+/**
+ * Auto-configuration for the a2a-java library.
+ * Ensures all components in 'net.kaduk.a2a' are registered when used as a dependency.
+ */
+@Configuration
+@ComponentScan(basePackages = "net.kaduk.a2a", excludeFilters = {
+    @ComponentScan.Filter(type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE, 
+                         value = {A2AAgentRegistry.class, A2AWebClientService.class, AgentController.class})
+})
+public class A2AAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public WebClient webClient() {
+        return WebClient.builder()
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+                .build();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public A2AWebClientService a2aWebClientService(WebClient webClient) {
+        return new A2AWebClientService(webClient);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public A2AAgentRegistry a2aAgentRegistry() {
+        return new A2AAgentRegistry();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @DependsOn({"a2aAgentRegistry", "a2aWebClientService"})
+    public AgentController agentController(A2AAgentRegistry a2aAgentRegistry) {
+        return new AgentController(a2aAgentRegistry);
+    }
+}
+
+================
+File: src/main/java/net/kaduk/a2a/A2AWebClientService.java
+================
+// Delete the incorrectly named file and create the correct one
+// src/main/java/net/kaduk/a2a/A2AWebClientService.java
+package net.kaduk.a2a;
+
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+/**
+ * Service for agent-to-agent (A2A) JSON-RPC communication over HTTP using WebFlux.
+ */
+@Component
+public class A2AWebClientService {
+    
+    private final WebClient webClient;
+
+    public A2AWebClientService(WebClient webClient) {
+        this.webClient = webClient;
+    }
+
+    /**
+     * Sends an A2A JSON-RPC message/send request to the agent at the provided URL.
+     */
+    public Mono<SendMessageSuccessResponse> sendMessage(String agentUrl, SendMessageRequest request) {
+        return webClient.post()
+                .uri(agentUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(SendMessageSuccessResponse.class);
+    }
+
+    /**
+     * Sends a streaming message request.
+     */
+    public Flux<Object> sendStreamingMessage(String agentUrl, SendStreamingMessageRequest request) {
+        return webClient.post()
+                .uri(agentUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToFlux(Object.class);
+    }
+
+    /**
+     * Gets a task by ID.
+     */
+    public Mono<GetTaskResponse> getTask(String agentUrl, GetTaskRequest request) {
+        return webClient.post()
+                .uri(agentUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(GetTaskResponse.class);
+    }
+
+    /**
+     * Cancels a task.
+     */
+    public Mono<CancelTaskResponse> cancelTask(String agentUrl, CancelTaskRequest request) {
+        return webClient.post()
+                .uri(agentUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(CancelTaskResponse.class);
+    }
+}
+
+================
+File: src/main/java/net/kaduk/a2a/A2AAgentRegistry.java
+================
+// src/main/java/net/kaduk/a2a/A2AAgentRegistry.java
+package net.kaduk.a2a;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.stereotype.Component;
+
+import jakarta.annotation.PostConstruct;
+import lombok.Getter;
+
+@Component
+public class A2AAgentRegistry implements ApplicationContextAware {
+
+    private ApplicationContext applicationContext;
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
+
+    /**
+     * Holds info about all registered agents:
+     * key: bean name, value: AgentMeta (contains metadata, skills)
+     */
+    @Getter
+    private final Map<String, AgentMeta> agentRegistry = new HashMap<>();
+
+    @PostConstruct
+    public void scanAgents() {
+        // Delay the scanning to avoid circular dependency during startup
+        try {
+            scanAndRegisterAgents();
+        } catch (Exception e) {
+            // Log error but don't fail startup
+            System.err.println("Error during agent scanning: " + e.getMessage());
+        }
+    }
+
+    private void scanAndRegisterAgents() {
+        Map<String, Object> agentBeans = applicationContext.getBeansWithAnnotation(A2AAgent.class);
+        
+        for (Map.Entry<String, Object> entry : agentBeans.entrySet()) {
+            String beanName = entry.getKey();
+            Object bean = entry.getValue();
+            
+            Class<?> beanClass = bean.getClass();
+            A2AAgent agentAnnotation = beanClass.getAnnotation(A2AAgent.class);
+            
+            if (agentAnnotation != null) {
+                List<SkillMeta> skills = new ArrayList<>();
+
+                for (Method method : beanClass.getMethods()) {
+                    if (method.isAnnotationPresent(A2AAgentSkill.class)) {
+                        A2AAgentSkill skillAnn = method.getAnnotation(A2AAgentSkill.class);
+                        skills.add(new SkillMeta(skillAnn, method));
+                    }
+                }
+                
+                AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
+                agentRegistry.put(beanName, meta);
+                System.out.println("Registered agent: " + agentAnnotation.name() + " with " + skills.size() + " skills");
+            }
+        }
+    }
+
+    @Getter
+    public static class AgentMeta {
+        private final String name;
+        private final String version;
+        private final String description;
+        private final Object bean;
+        private final List<SkillMeta> skills;
+
+        public AgentMeta(A2AAgent agentAnn, Object bean, List<SkillMeta> skills) {
+            this.name = agentAnn.name();
+            this.version = agentAnn.version();
+            this.description = agentAnn.description();
+            this.bean = bean;
+            this.skills = skills;
+        }
+    }
+
+    @Getter
+    public static class SkillMeta {
+        private final String id;
+        private final String name;
+        private final String description;
+        private final String[] tags;
+        private final Method method;
+
+        public SkillMeta(A2AAgentSkill ann, Method method) {
+            this.id = ann.id();
+            this.name = ann.name();
+            this.description = ann.description();
+            this.tags = ann.tags();
+            this.method = method;
+        }
+    }
+}
+
+================
+File: src/main/java/net/kaduk/a2a/AgentController.java
+================
+// src/main/java/net/kaduk/a2a/AgentController.java
+package net.kaduk.a2a;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import org.springframework.context.annotation.Lazy;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@RestController
+@Lazy // Important: Lazy initialization to avoid circular dependency
+public class AgentController {
+
+    private final A2AAgentRegistry agentRegistry;
+
+    // Constructor injection instead of field injection
+    public AgentController(@Lazy A2AAgentRegistry agentRegistry) {
+        this.agentRegistry = agentRegistry;
+    }
+
+    // Simple in-memory task storage for demo
+    private final Map<String, Task> tasks = new ConcurrentHashMap<>();
+
+    @GetMapping(value = "/agent/card", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<AgentCard> getAgentCard() {
+        List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(agentRegistry.getAgentRegistry().values());
+        if (agents.isEmpty()) {
+            // Return a default card if no agents are registered yet
+            return Mono.just(AgentCard.builder()
+                    .name("A2A Agent")
+                    .version("1.0")
+                    .description("A2A Protocol Agent")
+                    .skills(Collections.emptyList())
+                    .defaultInputModes(Collections.singletonList("text/plain"))
+                    .defaultOutputModes(Collections.singletonList("text/plain"))
+                    .capabilities(AgentCapabilities.builder()
+                            .streaming(true)
+                            .pushNotifications(false)
+                            .stateTransitionHistory(true)
+                            .build())
+                    .provider(AgentProvider.builder()
+                            .organization("A2A System")
+                            .url("http://localhost:8080")
+                            .build())
+                    .url("http://localhost:8080")
+                    .build());
+        }
+
+        A2AAgentRegistry.AgentMeta meta = agents.get(0);
+        List<AgentSkill> allSkills = agents.stream()
+                .flatMap(agent -> agent.getSkills().stream().map(skillMeta ->
+                        AgentSkill.builder()
+                                .id(skillMeta.getId())
+                                .name(skillMeta.getName())
+                                .description(skillMeta.getDescription())
+                                .tags(Arrays.asList(skillMeta.getTags()))
+                                .build()
+                )).collect(Collectors.toList());
+
+        AgentCard card = AgentCard.builder()
+                .name(meta.getName())
+                .version(meta.getVersion())
+                .description(meta.getDescription())
+                .skills(allSkills)
+                .defaultInputModes(Collections.singletonList("text/plain"))
+                .defaultOutputModes(Collections.singletonList("text/plain"))
+                .capabilities(AgentCapabilities.builder()
+                        .streaming(true)
+                        .pushNotifications(false)
+                        .stateTransitionHistory(true)
+                        .build())
+                .provider(AgentProvider.builder()
+                        .organization("A2A Auto MultiAgent System")
+                        .url("http://localhost:8080")
+                        .build())
+                .url("http://localhost:8080")
+                .build();
+        return Mono.just(card);
+    }
+
+    @PostMapping(value = "/agent/message", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<SendMessageSuccessResponse> handleSendMessage(@RequestBody SendMessageRequest request) {
+        return processMessage(request.getParams())
+                .map(task -> SendMessageSuccessResponse.builder()
+                        .id(request.getId())
+                        .result(createResponseMessage(task))
+                        .build())
+                .onErrorReturn(SendMessageSuccessResponse.builder()
+                        .id(request.getId())
+                        .result(Message.builder()
+                                .kind("message")
+                                .messageId(UUID.randomUUID().toString())
+                                .role("agent")
+                                .parts(Collections.singletonList(TextPart.builder()
+                                        .text("Error processing request")
+                                        .build()))
+                                .build())
+                        .build());
+    }
+
+    @PostMapping(value = "/agent/stream", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Flux<Object> handleStreamingMessage(@RequestBody SendStreamingMessageRequest request) {
+        return processMessage(request.getParams())
+                .flatMapMany(task -> Flux.just(
+                        createTaskStatusUpdate(task),
+                        createResponseMessage(task)
+                ))
+                .onErrorReturn(Map.of("error", "Failed to process streaming request"));
+    }
+
+    @PostMapping(value = "/agent/tasks/get", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<GetTaskResponse> handleGetTask(@RequestBody GetTaskRequest request) {
+        String taskId = request.getParams().getId();
+        Task task = tasks.get(taskId);
+        
+        if (task == null) {
+            return Mono.just(GetTaskResponse.builder()
+                    .id(request.getId())
+                    .error(A2AError.builder()
+                            .code(-32001)
+                            .message("Task not found")
+                            .build())
+                    .build());
+        }
+
+        return Mono.just(GetTaskResponse.builder()
+                .id(request.getId())
+                .result(task)
+                .build());
+    }
+
+    @PostMapping(value = "/agent/tasks/cancel", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<CancelTaskResponse> handleCancelTask(@RequestBody CancelTaskRequest request) {
+        String taskId = request.getParams().getId();
+        Task task = tasks.get(taskId);
+        
+        if (task == null) {
+            return Mono.just(CancelTaskResponse.builder()
+                    .id(request.getId())
+                    .error(A2AError.builder()
+                            .code(-32001)
+                            .message("Task not found")
+                            .build())
+                    .build());
+        }
+
+        // Update task status to canceled
+        task.setStatus(TaskStatus.builder()
+                .state(TaskState.CANCELED)
+                .timestamp(LocalDateTime.now().toString())
+                .build());
+
+        return Mono.just(CancelTaskResponse.builder()
+                .id(request.getId())
+                .result(task)
+                .build());
+    }
+
+    private Mono<Task> processMessage(MessageSendParams params) {
+        if (params == null || params.getMessage() == null) {
+            return Mono.error(new IllegalArgumentException("Invalid message parameters"));
+        }
+
+        Message msg = params.getMessage();
+        String skillId = msg.getTaskId();
+
+        // Create or find task
+        String taskId = msg.getTaskId() != null ? msg.getTaskId() : UUID.randomUUID().toString();
+        Task task = tasks.computeIfAbsent(taskId, id -> Task.builder()
+                .id(id)
+                .contextId(msg.getContextId() != null ? msg.getContextId() : UUID.randomUUID().toString())
+                .status(TaskStatus.builder()
+                        .state(TaskState.WORKING)
+                        .timestamp(LocalDateTime.now().toString())
+                        .build())
+                .history(new ArrayList<>())
+                .build());
+
+        // Extract input from message parts
+        String input = extractInputFromMessage(msg);
+
+        // Find and execute skill
+        Map<String, A2AAgentRegistry.AgentMeta> agents = agentRegistry.getAgentRegistry();
+        for (A2AAgentRegistry.AgentMeta agent : agents.values()) {
+            Optional<A2AAgentRegistry.SkillMeta> skillOpt = agent.getSkills().stream()
+                    .filter(meta -> meta.getId().equals(skillId))
+                    .findFirst();
+            
+            if (skillOpt.isPresent()) {
+                try {
+                    A2AAgentRegistry.SkillMeta skill = skillOpt.get();
+                    Object result;
+                    
+                    // Handle different parameter types
+                    Class<?>[] paramTypes = skill.getMethod().getParameterTypes();
+                    if (paramTypes.length == 0) {
+                        result = skill.getMethod().invoke(agent.getBean());
+                    } else if (paramTypes.length == 1) {
+                        result = skill.getMethod().invoke(agent.getBean(), input);
+                    } else {
+                        // For multiple parameters, you might need more sophisticated parameter mapping
+                        result = skill.getMethod().invoke(agent.getBean(), input);
+                    }
+                    
+                    // Store result in task metadata
+                    if (task.getMetadata() == null) {
+                        task.setMetadata(new HashMap<>());
+                    }
+                    task.getMetadata().put("result", result != null ? result.toString() : "null");
+                    
+                    // Update task status
+                    task.setStatus(TaskStatus.builder()
+                            .state(TaskState.COMPLETED)
+                            .timestamp(LocalDateTime.now().toString())
+                            .build());
+                    
+                    return Mono.just(task);
+                } catch (Exception e) {
+                    System.err.println("Error executing skill " + skillId + ": " + e.getMessage());
+                    task.setStatus(TaskStatus.builder()
+                            .state(TaskState.FAILED)
+                            .timestamp(LocalDateTime.now().toString())
+                            .build());
+                    if (task.getMetadata() == null) {
+                        task.setMetadata(new HashMap<>());
+                    }
+                    task.getMetadata().put("error", e.getMessage());
+                    return Mono.just(task);
+                }
+            }
+        }
+
+        task.setStatus(TaskStatus.builder()
+                .state(TaskState.REJECTED)
+                .timestamp(LocalDateTime.now().toString())
+                .build());
+        if (task.getMetadata() == null) {
+            task.setMetadata(new HashMap<>());
+        }
+        task.getMetadata().put("error", "Skill not found: " + skillId);
+        return Mono.just(task);
+    }
+
+    private String extractInputFromMessage(Message msg) {
+        if (msg.getParts() != null && !msg.getParts().isEmpty()) {
+            Part firstPart = msg.getParts().get(0);
+            if (firstPart instanceof TextPart) {
+                return ((TextPart) firstPart).getText();
+            }
+        }
+        return "";
+    }
+
+    private Message createResponseMessage(Task task) {
+        String resultText = "Task completed";
+        if (task.getMetadata() != null) {
+            Object result = task.getMetadata().get("result");
+            if (result != null) {
+                resultText = result.toString();
+            }
+            Object error = task.getMetadata().get("error");
+            if (error != null) {
+                resultText = "Error: " + error.toString();
+            }
+        }
+
+        return Message.builder()
+                .kind("message")
+                .messageId(UUID.randomUUID().toString())
+                .role("agent")
+                .contextId(task.getContextId())
+                .taskId(task.getId())
+                .parts(Collections.singletonList(TextPart.builder()
+                        .text(resultText)
+                        .build()))
+                .build();
+    }
+
+    private Object createTaskStatusUpdate(Task task) {
+        return Map.of(
+                "kind", "status-update",
+                "taskId", task.getId(),
+                "contextId", task.getContextId(),
+                "status", task.getStatus(),
+                "final", task.getStatus().getState() == TaskState.COMPLETED ||
+                        task.getStatus().getState() == TaskState.FAILED ||
+                        task.getStatus().getState() == TaskState.CANCELED
+        );
+    }
 }
 
 
