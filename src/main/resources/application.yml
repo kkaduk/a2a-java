@@ -1,10 +1,33 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:a2a
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: 
+    url: jdbc:oracle:thin:@oradevdemo_medium?TNS_ADMIN=dbwallet
+    username: DEMO
+    password: ${DEMO_PWD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      minimum-idle: 3
+      maximum-pool-size: 10
+      idle-timeout: 30000
+      max-lifetime: 2000000
+      connection-timeout: 30000
+      pool-name: HikariPoolScraper
+      keepalive-time: 240000  # 4 min (must be < maxLifetime)
+      connection-test-query: SELECT 1 FROM DUAL
+      data-source-properties:
+        oracle.jdbc.ReadTimeout: 5000
+
+
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.Oracle12cDialect
     show-sql: true
+   
+logging:
+  level:
+    net.kaduk.a2a: DEBUG
+    org.springframework: WARN
+    org.hibernate: WARN
+    root: WARN
