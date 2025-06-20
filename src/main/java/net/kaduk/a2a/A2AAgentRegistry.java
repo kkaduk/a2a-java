@@ -11,11 +11,11 @@ import java.util.Optional;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.annotation.PreDestroy;
 import lombok.Getter;
 
 @Component
@@ -40,14 +40,14 @@ public class A2AAgentRegistry implements ApplicationContextAware {
     @Transactional
     public void registerAgentsOnStartup() {
         Map<String, Object> agentBeans = applicationContext.getBeansWithAnnotation(A2AAgent.class);
-        
+
         for (Map.Entry<String, Object> entry : agentBeans.entrySet()) {
             String beanName = entry.getKey();
             Object bean = entry.getValue();
-            
+
             Class<?> beanClass = bean.getClass();
             A2AAgent agentAnnotation = beanClass.getAnnotation(A2AAgent.class);
-            
+
             if (agentAnnotation != null) {
                 registerAgent(beanName, bean, agentAnnotation);
             }
@@ -57,17 +57,17 @@ public class A2AAgentRegistry implements ApplicationContextAware {
     @Transactional
     private void registerAgent(String beanName, Object bean, A2AAgent agentAnnotation) {
         List<SkillMeta> skills = new ArrayList<>();
-        
+
         for (Method method : bean.getClass().getMethods()) {
             if (method.isAnnotationPresent(A2AAgentSkill.class)) {
                 A2AAgentSkill skillAnn = method.getAnnotation(A2AAgentSkill.class);
                 skills.add(new SkillMeta(skillAnn, method));
             }
         }
-        
+
         AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
         agentRegistry.put(beanName, meta);
-        
+
         AgentEntity entity = AgentEntity.builder()
                 .name(agentAnnotation.name())
                 .version(agentAnnotation.version())
@@ -77,20 +77,20 @@ public class A2AAgentRegistry implements ApplicationContextAware {
                 .lastHeartbeat(LocalDateTime.now())
                 .active(true)
                 .build();
-        
+
         Optional<AgentEntity> existing = agentRepository.findByName(agentAnnotation.name());
         if (existing.isPresent()) {
             entity.setId(existing.get().getId());
             entity.setRegisteredAt(existing.get().getRegisteredAt());
         }
-        
+
         agentRepository.save(entity);
         System.out.println("Registered agent: " + agentAnnotation.name() + " with " + skills.size() + " skills");
     }
 
-    @PreDestroy
+    @EventListener(ContextClosedEvent.class)
     @Transactional
-    public void deregisterAgentsOnShutdown() {
+    public void deregisterAgentsOnContextClose() {
         for (AgentMeta meta : agentRegistry.values()) {
             agentRepository.deleteByName(meta.getName());
             System.out.println("Deregistered agent: " + meta.getName());
