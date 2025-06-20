@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -23,8 +22,11 @@ import lombok.Getter;
 public class A2AAgentRegistry implements ApplicationContextAware {
 
     private ApplicationContext applicationContext;
-    @Autowired
-    private AgentRepository agentRepository;
+    private final AgentRepository agentRepository;
+
+    public A2AAgentRegistry(AgentRepository agentRepository) {
+        this.agentRepository = agentRepository;
+    }
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
@@ -66,7 +68,6 @@ public class A2AAgentRegistry implements ApplicationContextAware {
         AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
         agentRegistry.put(beanName, meta);
         
-        // Persist to database
         AgentEntity entity = AgentEntity.builder()
                 .name(agentAnnotation.name())
                 .version(agentAnnotation.version())
