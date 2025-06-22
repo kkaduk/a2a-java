@@ -42,4 +42,18 @@ public class A2AAutoConfiguration {
     public AgentController agentController(A2AAgentRegistry a2aAgentRegistry) {
         return new AgentController(a2aAgentRegistry);
     }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public Receptionist receptionist(AgentRepository agentRepository,
+            A2AAgentRegistry agentRegistry,
+            A2AWebClientService webClientService) {
+        return new Receptionist(agentRepository, agentRegistry, webClientService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ReceptionistController receptionistController(Receptionist receptionist) {
+        return new ReceptionistController(receptionist);
+    }
 }
