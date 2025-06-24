@@ -1,5 +1,6 @@
 package net.kaduk.a2a;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
@@ -16,9 +18,13 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Slf4j
 public class A2AAgentRegistry implements ApplicationContextAware {
 
     private ApplicationContext applicationContext;
@@ -39,6 +45,7 @@ public class A2AAgentRegistry implements ApplicationContextAware {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void registerAgentsOnStartup() {
+        log.info("(KK) Registering A2A agents on startup...");
         Map<String, Object> agentBeans = applicationContext.getBeansWithAnnotation(A2AAgent.class);
 
         for (Map.Entry<String, Object> entry : agentBeans.entrySet()) {
@@ -67,6 +74,32 @@ public class A2AAgentRegistry implements ApplicationContextAware {
 
         AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
         agentRegistry.put(beanName, meta);
+        log.info("(KK)  agentRegistry.size()={} agentRegistry.keys={}", agentRegistry.size(), agentRegistry.keySet());
+
+        //****** AgentMetaDTO FIXME to separate procedure */
+        List<A2AAgentSkillDTO> skillDTOs = skills.stream()
+                .map(skillMeta -> {
+                    A2AAgentSkill skillAnnotation = skillMeta.getMethod().getAnnotation(A2AAgentSkill.class);
+                    return new A2AAgentSkillDTO(
+                            skillAnnotation.id(),
+                            skillAnnotation.name(),
+                            skillAnnotation.description(),
+                            skillAnnotation.tags() != null ? List.of(skillAnnotation.tags()) : List.of());
+                })
+                .collect(Collectors.toList());
+
+        AgentMetaDTO dto = new AgentMetaDTO(agentAnnotation.name(), skillDTOs);
+        ObjectMapper mapper = new ObjectMapper();
+        String jmeta = null;
+        try {
+            jmeta = mapper.writeValueAsString(dto);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        log.info("(KK) Agent metadata JSON: {}", jmeta);
+        //****** End AgentMetaDTO FIXME persist in JSON CLOB*/
+
+
 
         AgentEntity entity = AgentEntity.builder()
                 .name(agentAnnotation.name())
