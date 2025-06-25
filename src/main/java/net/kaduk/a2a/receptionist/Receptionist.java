@@ -1,5 +1,5 @@
 // src/main/java/net/kaduk/a2a/Receptionist.java
-package net.kaduk.a2a;
+package net.kaduk.a2a.receptionist;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +16,11 @@ import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
+
+import net.kaduk.a2a.*;
+import net.kaduk.a2a.receptionist.model.A2AAgentSkillDTO;
+import net.kaduk.a2a.receptionist.model.AgentEntity;
+import net.kaduk.a2a.receptionist.model.CapabilityQuery;
 
 /**
  * Receptionist handles capability-based queries from external agent platforms.

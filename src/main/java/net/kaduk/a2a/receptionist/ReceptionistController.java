@@ -1,5 +1,5 @@
 // src/main/java/net/kaduk/a2a/ReceptionistController.java
-package net.kaduk.a2a;
+package net.kaduk.a2a.receptionist;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -7,6 +7,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Optional;
+import net.kaduk.a2a.*;
+import net.kaduk.a2a.receptionist.model.CapabilityQuery;
 
 /**
  * REST controller providing A2A-compliant endpoints for capability discovery.

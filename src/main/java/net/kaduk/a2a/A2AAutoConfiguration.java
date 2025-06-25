@@ -9,6 +9,10 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import net.kaduk.a2a.receptionist.AgentRepository;
+import net.kaduk.a2a.receptionist.Receptionist;
+import net.kaduk.a2a.receptionist.ReceptionistController;
+
 @Configuration
 @ComponentScan(basePackages = "net.kaduk.a2a")
 @EntityScan(basePackages = "net.kaduk.a2a")

@@ -1,4 +1,4 @@
-package net.kaduk.a2a;
+package net.kaduk.a2a.receptionist.model;
 
 import java.util.List;
 

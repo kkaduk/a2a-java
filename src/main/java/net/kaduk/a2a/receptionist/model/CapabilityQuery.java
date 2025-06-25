@@ -1,5 +1,5 @@
 // src/main/java/net/kaduk/a2a/CapabilityQuery.java
-package net.kaduk.a2a;
+package net.kaduk.a2a.receptionist.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -18,19 +18,22 @@ import java.util.List;
 public class CapabilityQuery {
     @JsonProperty("skillId")
     private String skillId;
-    
+
     @JsonProperty("requiredTags")
     private List<String> requiredTags;
-    
+
     @JsonProperty("keywords")
     private List<String> keywords;
-    
+
     @JsonProperty("inputMode")
     private String inputMode;
-    
+
     @JsonProperty("outputMode")
     private String outputMode;
-    
+
     @JsonProperty("maxResults")
     private Integer maxResults;
+
+    @JsonProperty("matchAllTags")
+    private Boolean matchAllTags; // true = AND, false = OR
 }
