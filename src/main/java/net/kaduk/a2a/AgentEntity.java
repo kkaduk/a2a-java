@@ -36,4 +36,7 @@ public class AgentEntity {
     
     @Column
     private boolean active = true;
+
+    @Column(name = "skill")
+    private String skill;
 }

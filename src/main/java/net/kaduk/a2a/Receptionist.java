@@ -1,14 +1,21 @@
 // src/main/java/net/kaduk/a2a/Receptionist.java
 package net.kaduk.a2a;
 
-import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 
 /**
  * Receptionist handles capability-based queries from external agent platforms.
@@ -204,6 +211,38 @@ public class Receptionist {
 
         return false;
     }
+
+    private boolean isSkillMatching(A2AAgentSkillDTO skill, CapabilityQuery query) {
+    
+    // Check skill ID match
+    if (query.getSkillId() != null && skill.getId().equals(query.getSkillId())) {
+        return true;
+    }
+
+    // Check tag matches
+    if (query.getRequiredTags() != null && !query.getRequiredTags().isEmpty()) {
+        List<String> skillTagsList = skill.getTags();
+        if (skillTagsList != null) {
+            Set<String> skillTags = new HashSet<>(skillTagsList);
+            if (query.getRequiredTags().stream().anyMatch(skillTags::contains)) {
+                return true;
+            }
+        }
+    }
+
+    // Check keyword matches in name or description
+    if (query.getKeywords() != null && !query.getKeywords().isEmpty()) {
+        String name = skill.getName() != null ? skill.getName() : "";
+        String description = skill.getDescription() != null ? skill.getDescription() : "";
+        String searchText = (name + " " + description).toLowerCase();
+
+        return query.getKeywords().stream()
+                .anyMatch(keyword -> searchText.contains(keyword.toLowerCase()));
+    }
+
+    return false;
+}
+
 
     private SkillCapability convertToSkillCapability(A2AAgentRegistry.SkillMeta skill) {
         return SkillCapability.builder()

@@ -96,10 +96,7 @@ public class A2AAgentRegistry implements ApplicationContextAware {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        log.info("(KK) Agent metadata JSON: {}", jmeta);
         //****** End AgentMetaDTO FIXME persist in JSON CLOB*/
-
-
 
         AgentEntity entity = AgentEntity.builder()
                 .name(agentAnnotation.name())
@@ -109,6 +106,7 @@ public class A2AAgentRegistry implements ApplicationContextAware {
                 .registeredAt(LocalDateTime.now())
                 .lastHeartbeat(LocalDateTime.now())
                 .active(true)
+                .skill(jmeta)
                 .build();
 
         Optional<AgentEntity> existing = agentRepository.findByName(agentAnnotation.name());
