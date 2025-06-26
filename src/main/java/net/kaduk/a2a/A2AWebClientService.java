@@ -5,15 +5,19 @@ package net.kaduk.a2a;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Service for agent-to-agent (A2A) JSON-RPC communication over HTTP using WebFlux.
+ * Service for agent-to-agent (A2A) JSON-RPC communication over HTTP using
+ * WebFlux.
  */
 @Component
+@Slf4j
 public class A2AWebClientService {
-    
+
     private final WebClient webClient;
 
     public A2AWebClientService(WebClient webClient) {
@@ -24,12 +28,16 @@ public class A2AWebClientService {
      * Sends an A2A JSON-RPC message/send request to the agent at the provided URL.
      */
     public Mono<SendMessageSuccessResponse> sendMessage(String agentUrl, SendMessageRequest request) {
-        return webClient.post()
-                .uri(agentUrl)
+        log.info("(KK) Sending message to webclient at URL: " + agentUrl);
+        log.info("(KK) Request body: " + request.toString());
+        var xxx = webClient.post()
+                .uri(agentUrl + "/agent/message")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(SendMessageSuccessResponse.class);
+        log.info("(KK) Response from webclient: " + xxx.subscribe().toString());
+        return xxx;
     }
 
     /**
@@ -37,7 +45,7 @@ public class A2AWebClientService {
      */
     public Flux<Object> sendStreamingMessage(String agentUrl, SendStreamingMessageRequest request) {
         return webClient.post()
-                .uri(agentUrl)
+                .uri(agentUrl + "/agent/streaming")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
@@ -49,7 +57,7 @@ public class A2AWebClientService {
      */
     public Mono<GetTaskResponse> getTask(String agentUrl, GetTaskRequest request) {
         return webClient.post()
-                .uri(agentUrl)
+                .uri(agentUrl + "/agent/task")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
@@ -61,7 +69,7 @@ public class A2AWebClientService {
      */
     public Mono<CancelTaskResponse> cancelTask(String agentUrl, CancelTaskRequest request) {
         return webClient.post()
-                .uri(agentUrl)
+                .uri(agentUrl + "/agent/cancel")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()

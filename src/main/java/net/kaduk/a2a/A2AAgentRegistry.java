@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +48,7 @@ public class A2AAgentRegistry implements ApplicationContextAware {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void registerAgentsOnStartup() {
-        log.info("(KK) Registering A2A agents on startup...");
+        log.info("Registering A2A agents on startup...");
         Map<String, Object> agentBeans = applicationContext.getBeansWithAnnotation(A2AAgent.class);
 
         for (Map.Entry<String, Object> entry : agentBeans.entrySet()) {
@@ -65,6 +64,13 @@ public class A2AAgentRegistry implements ApplicationContextAware {
         }
     }
 
+    /**
+     * Registers an agent bean with its skills into the registry and persists it to the database.
+     *
+     * @param beanName          The name of the bean in the application context.
+     * @param bean              The agent bean instance.
+     * @param agentAnnotation   The A2AAgent annotation containing metadata.
+     */
     @Transactional
     private void registerAgent(String beanName, Object bean, A2AAgent agentAnnotation) {
         List<SkillMeta> skills = new ArrayList<>();
@@ -78,9 +84,8 @@ public class A2AAgentRegistry implements ApplicationContextAware {
 
         AgentMeta meta = new AgentMeta(agentAnnotation, bean, skills);
         agentRegistry.put(beanName, meta);
-        log.info("(KK)  agentRegistry.size()={} agentRegistry.keys={}", agentRegistry.size(), agentRegistry.keySet());
-
-        //****** AgentMetaDTO FIXME to separate procedure */
+        
+        log.info("Registered agent: {} with {} skills", agentAnnotation.name(), skills.size());
         List<A2AAgentSkillDTO> skillDTOs = skills.stream()
                 .map(skillMeta -> {
                     A2AAgentSkill skillAnnotation = skillMeta.getMethod().getAnnotation(A2AAgentSkill.class);
@@ -98,9 +103,12 @@ public class A2AAgentRegistry implements ApplicationContextAware {
         try {
             jmeta = mapper.writeValueAsString(dto);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(jmeta + " cannot be serialized to JSON", e);
         }
-        //****** End AgentMetaDTO FIXME persist in JSON CLOB*/
+        if (jmeta == null) {
+            log.error("Failed to serialize agent metadata for agent: {}", agentAnnotation.name());
+            return;
+        }
 
         AgentEntity entity = AgentEntity.builder()
                 .name(agentAnnotation.name())
@@ -120,10 +128,16 @@ public class A2AAgentRegistry implements ApplicationContextAware {
         }
 
         agentRepository.save(entity);
-        System.out.println("Registered agent: " + agentAnnotation.name() + " with " + skills.size() + " skills");
+        log.info("Registered agent: {} with {} skills", agentAnnotation.name(), skills.size());
+        log.debug("Agent metadata: {}", jmeta);
     }
 
-    @EventListener(ContextClosedEvent.class)
+
+
+    /**
+     * Deregister all agents when the application context is closed.
+     * This method is called automatically by Spring when the application context is shutting down.
+     */
     @Transactional
     public void deregisterAgentsOnContextClose() {
         for (AgentMeta meta : agentRegistry.values()) {

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -20,11 +21,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
 @Lazy // Important: Lazy initialization to avoid circular dependency
+@Slf4j
 public class AgentController {
 
         private final A2AAgentRegistry agentRegistry;
@@ -37,64 +40,68 @@ public class AgentController {
         // Simple in-memory task storage for demo
         private final Map<String, Task> tasks = new ConcurrentHashMap<>();
 
-        // @GetMapping(value = "/agent/card", produces = MediaType.APPLICATION_JSON_VALUE)
+        // @GetMapping(value = "/agent/card", produces =
+        // MediaType.APPLICATION_JSON_VALUE)
         // public Mono<AgentCard> getAgentCard() {
-        //         List<A2AAgentRegistry.AgentMeta> agents = new ArrayList<>(agentRegistry.getAgentRegistry().values());
-        //         if (agents.isEmpty()) {
-        //                 // Return a default card if no agents are registered yet
-        //                 return Mono.just(AgentCard.builder()
-        //                                 .name("A2A Agent")
-        //                                 .version("1.0")
-        //                                 .description("A2A Protocol Agent")
-        //                                 .skills(Collections.emptyList())
-        //                                 .defaultInputModes(Collections.singletonList("text/plain"))
-        //                                 .defaultOutputModes(Collections.singletonList("text/plain"))
-        //                                 .capabilities(AgentCapabilities.builder()
-        //                                                 .streaming(true)
-        //                                                 .pushNotifications(false)
-        //                                                 .stateTransitionHistory(true)
-        //                                                 .build())
-        //                                 .provider(AgentProvider.builder()
-        //                                                 .organization("A2A System")
-        //                                                 .url("http://localhost:8080")
-        //                                                 .build())
-        //                                 .url("http://localhost:8080")
-        //                                 .build());
-        //         }
+        // List<A2AAgentRegistry.AgentMeta> agents = new
+        // ArrayList<>(agentRegistry.getAgentRegistry().values());
+        // if (agents.isEmpty()) {
+        // // Return a default card if no agents are registered yet
+        // return Mono.just(AgentCard.builder()
+        // .name("A2A Agent")
+        // .version("1.0")
+        // .description("A2A Protocol Agent")
+        // .skills(Collections.emptyList())
+        // .defaultInputModes(Collections.singletonList("text/plain"))
+        // .defaultOutputModes(Collections.singletonList("text/plain"))
+        // .capabilities(AgentCapabilities.builder()
+        // .streaming(true)
+        // .pushNotifications(false)
+        // .stateTransitionHistory(true)
+        // .build())
+        // .provider(AgentProvider.builder()
+        // .organization("A2A System")
+        // .url("http://localhost:8080")
+        // .build())
+        // .url("http://localhost:8080")
+        // .build());
+        // }
 
-        //         A2AAgentRegistry.AgentMeta meta = agents.get(0);
-        //         List<AgentSkill> allSkills = agents.stream()
-        //                         .flatMap(agent -> agent.getSkills().stream().map(skillMeta -> AgentSkill.builder()
-        //                                         .id(skillMeta.getId())
-        //                                         .name(skillMeta.getName())
-        //                                         .description(skillMeta.getDescription())
-        //                                         .tags(Arrays.asList(skillMeta.getTags()))
-        //                                         .build()))
-        //                         .collect(Collectors.toList());
+        // A2AAgentRegistry.AgentMeta meta = agents.get(0);
+        // List<AgentSkill> allSkills = agents.stream()
+        // .flatMap(agent -> agent.getSkills().stream().map(skillMeta ->
+        // AgentSkill.builder()
+        // .id(skillMeta.getId())
+        // .name(skillMeta.getName())
+        // .description(skillMeta.getDescription())
+        // .tags(Arrays.asList(skillMeta.getTags()))
+        // .build()))
+        // .collect(Collectors.toList());
 
-        //         AgentCard card = AgentCard.builder()
-        //                         .name(meta.getName())
-        //                         .version(meta.getVersion())
-        //                         .description(meta.getDescription())
-        //                         .skills(allSkills)
-        //                         .defaultInputModes(Collections.singletonList("text/plain"))
-        //                         .defaultOutputModes(Collections.singletonList("text/plain"))
-        //                         .capabilities(AgentCapabilities.builder()
-        //                                         .streaming(true)
-        //                                         .pushNotifications(false)
-        //                                         .stateTransitionHistory(true)
-        //                                         .build())
-        //                         .provider(AgentProvider.builder()
-        //                                         .organization("A2A Auto MultiAgent System")
-        //                                         .url("http://localhost:8080")
-        //                                         .build())
-        //                         .url("http://localhost:8080")
-        //                         .build();
-        //         return Mono.just(card);
+        // AgentCard card = AgentCard.builder()
+        // .name(meta.getName())
+        // .version(meta.getVersion())
+        // .description(meta.getDescription())
+        // .skills(allSkills)
+        // .defaultInputModes(Collections.singletonList("text/plain"))
+        // .defaultOutputModes(Collections.singletonList("text/plain"))
+        // .capabilities(AgentCapabilities.builder()
+        // .streaming(true)
+        // .pushNotifications(false)
+        // .stateTransitionHistory(true)
+        // .build())
+        // .provider(AgentProvider.builder()
+        // .organization("A2A Auto MultiAgent System")
+        // .url("http://localhost:8080")
+        // .build())
+        // .url("http://localhost:8080")
+        // .build();
+        // return Mono.just(card);
         // }
 
         @PostMapping(value = "/agent/message", consumes = MediaType.APPLICATION_JSON_VALUE)
         public Mono<SendMessageSuccessResponse> handleSendMessage(@RequestBody SendMessageRequest request) {
+                log.info("(KK777) Received message request: {}", request);
                 return processMessage(request.getParams())
                                 .map(task -> SendMessageSuccessResponse.builder()
                                                 .id(request.getId())
@@ -171,6 +178,7 @@ public class AgentController {
         }
 
         private Mono<Task> processMessage(MessageSendParams params) {
+                log.info("(KK777) Processing message: " + params);
                 if (params == null || params.getMessage() == null) {
                         return Mono.error(new IllegalArgumentException("Invalid message parameters"));
                 }
@@ -196,12 +204,15 @@ public class AgentController {
 
                 // Find and execute skill
                 Map<String, A2AAgentRegistry.AgentMeta> agents = agentRegistry.getAgentRegistry();
+                log.info("(KK777) expecting skill for agent: " + agents.entrySet().toString() + " for skill: "
+                                + skillId);
                 for (A2AAgentRegistry.AgentMeta agent : agents.values()) {
                         Optional<A2AAgentRegistry.SkillMeta> skillOpt = agent.getSkills().stream()
                                         .filter(meta -> meta.getId().equals(skillId))
                                         .findFirst();
 
                         if (skillOpt.isPresent()) {
+                                log.info("(KK777) Found skill: " + skillId + " in agent: " + agent.getName());
                                 try {
                                         A2AAgentRegistry.SkillMeta skill = skillOpt.get();
                                         Object result;
@@ -210,18 +221,29 @@ public class AgentController {
                                         Class<?>[] paramTypes = skill.getMethod().getParameterTypes();
                                         if (paramTypes.length == 0) {
                                                 result = skill.getMethod().invoke(agent.getBean());
+                                                log.info("(KK888-EX-1) Skill " + skillId + " executed with result: "
+                                                                + result);
                                         } else if (paramTypes.length == 1) {
                                                 result = skill.getMethod().invoke(agent.getBean(), input);
+                                                if (result instanceof CompletableFuture) {
+                                                        result = ((CompletableFuture<?>) result).get(); // Blocking wait
+                                                }
+                                                log.info("(KK888-EX-2) Skill " + skillId + " executed with result: "
+                                                                + result);
                                         } else {
                                                 // For multiple parameters, you might need more sophisticated parameter
                                                 // mapping
                                                 result = skill.getMethod().invoke(agent.getBean(), input);
+                                                log.info(input + " (KK888-EX-3) MP Skill " + skillId
+                                                                + " executed with result: " + result);
                                         }
 
                                         // Store result in task metadata
                                         if (task.getMetadata() == null) {
                                                 task.setMetadata(new HashMap<>());
                                         }
+                                        log.info("(KK888) Skill " + skillId + " executed with result: "
+                                                        + result.toString());
                                         task.getMetadata().put("result", result != null ? result.toString() : "null");
 
                                         // Update task status
@@ -229,7 +251,8 @@ public class AgentController {
                                                         .state(TaskState.COMPLETED)
                                                         .timestamp(LocalDateTime.now().toString())
                                                         .build());
-
+                                        log.info("(KK999) Skill " + skillId + " executed successfully with result: "
+                                                        + task.getMetadata().get("result"));
                                         return Mono.just(task);
                                 } catch (Exception e) {
                                         System.err.println("Error executing skill " + skillId + ": " + e.getMessage());

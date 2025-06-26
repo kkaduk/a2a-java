@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import net.kaduk.a2a.receptionist.AgentRepository;
+import net.kaduk.a2a.receptionist.AgentRepositoryCustom;
 import net.kaduk.a2a.receptionist.Receptionist;
 import net.kaduk.a2a.receptionist.ReceptionistController;
 
@@ -49,10 +50,10 @@ public class A2AAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public Receptionist receptionist(AgentRepository agentRepository,
-            A2AAgentRegistry agentRegistry,
-            A2AWebClientService webClientService) {
-        return new Receptionist(agentRepository, agentRegistry, webClientService);
+    public Receptionist receptionist(AgentRepositoryCustom agentRepositoryCustom,
+            A2AWebClientService webClientService,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+        return new Receptionist(agentRepositoryCustom, webClientService, objectMapper);
     }
 
     @Bean
